@@ -56,8 +56,9 @@ async def remember_trade(trade: Trade) -> bool:
 
         await cognee.remember(
             trade_to_memory_text(trade),
-            session_id=os.getenv("COGNEE_SESSION_ID", "default_trader"),
-    )
+            dataset_name=settings.cognee_dataset_name,
+            self_improvement=False,
+)
 
         return True
 
@@ -78,9 +79,8 @@ async def recall_similar_trades(payload: MemoryRecallRequest) -> list[str]:
 
         results = await cognee.recall(
             query,
-            dataset_name=settings.cognee_dataset_name,
-            session_id=settings.cognee_session_id,
-        )
+            datasets=[settings.cognee_dataset_name],
+)
 
         return [str(result) for result in results]
 
