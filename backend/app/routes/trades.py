@@ -6,7 +6,8 @@ from app.models import Trade
 from app.schemas import TradeCreate, TradeOut, TradeUpdate
 from app.services.memory_service import remember_trade
 from app.services.risk_service import calculate_risk_reward
-
+from app.schemas import AICoachRequest, AICoachResponse, TradeCreate, TradeOut, TradeUpdate
+from app.services.ai_coach_service import generate_memory_coach_review
 router = APIRouter(prefix="/trades", tags=["trades"])
 
 
@@ -38,7 +39,21 @@ def list_trades(db: Session = Depends(get_db)):
     trades = db.query(Trade).order_by(Trade.created_at.desc()).all()
     return [to_trade_out(trade) for trade in trades]
 
-
+@router.post("/ai-coach", response_model=AICoachResponse)
+async def create_ai_coach_review(payload: AICoachRequest):
+    try:
+        return await generate_memory_coach_review(payload)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        )
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AI coach review failed: {error}",
+        )
+        
 @router.get("/{trade_id}", response_model=TradeOut)
 def get_trade(trade_id: int, db: Session = Depends(get_db)):
     trade = db.get(Trade, trade_id)

@@ -69,6 +69,58 @@ class MemoryStatusOut(BaseModel):
     session_id: str
 
 
+class MemoryForgetDatasetRequest(BaseModel):
+    confirm_dataset_name: str = Field(
+        ...,
+        examples=["trading_journal_memory"],
+    )
+
+
+class MemoryActionOut(BaseModel):
+    success: bool
+    action: str
+    dataset_name: str
+    message: str
+    raw_result: str | None = None
+
+
+class AICoachRequest(BaseModel):
+    trade: TradeCreate
+    question: str | None = Field(
+        default=None,
+        examples=["Should I take this trade based on my past similar trades?"],
+    )
+
+
+class AICoachResponse(BaseModel):
+    query: str
+    recalled_memories: list[str]
+    coach_review: str
+
+
+class SymbolPerformanceOut(BaseModel):
+    symbol: str
+    total_trades: int
+    wins: int
+    losses: int
+    win_rate: float
+
+
+class DashboardSummaryOut(BaseModel):
+    total_trades: int
+    open_trades: int
+    closed_trades: int
+    planned_trades: int
+    wins: int
+    losses: int
+    breakeven: int
+    pending: int
+    win_rate: float
+    average_risk_reward: float | None
+    symbol_performance: list[SymbolPerformanceOut]
+    recent_trades: list[TradeOut]
+
+
 class HealthOut(BaseModel):
     status: str
     app: str

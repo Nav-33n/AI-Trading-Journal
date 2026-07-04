@@ -1,5 +1,3 @@
-import os
-
 from app.config import settings
 from app.models import Trade
 from app.schemas import MemoryRecallRequest
@@ -58,7 +56,7 @@ async def remember_trade(trade: Trade) -> bool:
             trade_to_memory_text(trade),
             dataset_name=settings.cognee_dataset_name,
             self_improvement=False,
-)
+        )
 
         return True
 
@@ -80,10 +78,46 @@ async def recall_similar_trades(payload: MemoryRecallRequest) -> list[str]:
         results = await cognee.recall(
             query,
             datasets=[settings.cognee_dataset_name],
-)
+        )
 
         return [str(result) for result in results]
 
     except Exception as exc:
         print(f"[COGNEE_RECALL_ERROR] {exc}")
         return [f"Cognee recall failed: {exc}"]
+
+
+async def improve_memory() -> tuple[bool, str, str | None]:
+    if not settings.cognee_enabled:
+        return False, "Cognee is disabled. Improve skipped.", None
+
+    try:
+        import cognee
+
+        result = await cognee.improve(
+            dataset=settings.cognee_dataset_name,
+        )
+
+        return True, "Cognee memory improved successfully.", str(result)
+
+    except Exception as exc:
+        print(f"[COGNEE_IMPROVE_ERROR] {exc}")
+        return False, f"Cognee improve failed: {exc}", None
+
+
+async def forget_memory_dataset() -> tuple[bool, str, str | None]:
+    if not settings.cognee_enabled:
+        return False, "Cognee is disabled. Forget skipped.", None
+
+    try:
+        import cognee
+
+        result = await cognee.forget(
+            dataset=settings.cognee_dataset_name,
+        )
+
+        return True, "Cognee memory dataset forgotten successfully.", str(result)
+
+    except Exception as exc:
+        print(f"[COGNEE_FORGET_ERROR] {exc}")
+        return False, f"Cognee forget failed: {exc}", None

@@ -3,7 +3,6 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-*.pyc
 
 # Virtual environments
 .venv/
@@ -15,7 +14,7 @@ env/
 .env.*
 !.env.example
 
-# Databases / local storage
+# Local databases and app storage
 *.db
 *.sqlite
 *.sqlite3

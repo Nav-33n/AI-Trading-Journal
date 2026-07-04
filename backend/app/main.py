@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
-from app.routes import health, memory, trades
+from app.routes import dashboard, health, memory, trades
 
 Base.metadata.create_all(bind=engine)
 
@@ -22,3 +22,4 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(trades.router)
 app.include_router(memory.router)
+app.include_router(dashboard.router)

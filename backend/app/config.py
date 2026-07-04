@@ -8,7 +8,10 @@ class Settings(BaseSettings):
 
     ai_provider: str = "groq"
     ai_api_key: str = ""
-    ai_model: str = "llama-3.3-70b-versatile"
+    ai_base_url: str = "https://api.groq.com/openai/v1"
+    ai_model: str = "openai/gpt-oss-20b"
+    ai_timeout_seconds: float = 30.0
+    ai_max_output_tokens: int = 800
 
     cognee_enabled: bool = True
     cognee_dataset_name: str = "trading_journal_memory"
