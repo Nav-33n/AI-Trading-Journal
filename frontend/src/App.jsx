@@ -42,6 +42,25 @@ const initialSaveTrade = {
 
 const MEMORY_DATASET_NAME = "trading_journal_memory";
 
+const fallbackInstruments = [
+  {
+    symbol: "XAUUSD",
+    label: "Gold / US Dollar",
+  },
+  {
+    symbol: "USOIL",
+    label: "US Crude Oil",
+  },
+];
+
+const coachReviewSections = [
+  ["memory_match", "Memory Match"],
+  ["risk_check", "Risk Check"],
+  ["setup_quality", "Setup Quality"],
+  ["coaching_advice", "Coaching Advice"],
+  ["one_rule", "One Rule"],
+];
+
 function formatNumber(value) {
   if (value === null || value === undefined) {
     return "-";
@@ -53,6 +72,10 @@ function formatNumber(value) {
 }
 
 function formatPercent(value) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+
   return `${formatNumber(value)}%`;
 }
 
@@ -62,6 +85,17 @@ function formatRatio(value) {
   }
 
   return `1:${formatNumber(value)}`;
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function StatCard({ label, value, detail }) {
@@ -99,14 +133,48 @@ function buildTradePayload(trade) {
   };
 }
 
+function tradeToFormState(trade) {
+  return {
+    symbol: trade.symbol || "XAUUSD",
+    direction: trade.direction || "BUY",
+    entry_price: String(trade.entry_price ?? ""),
+    stop_loss: String(trade.stop_loss ?? ""),
+    take_profit: String(trade.take_profit ?? ""),
+    lot_size: String(trade.lot_size ?? ""),
+    risk_percent: String(trade.risk_percent ?? ""),
+    session: trade.session || "",
+    setup: trade.setup || "",
+    emotion: trade.emotion || "",
+    notes: trade.notes || "",
+    status: trade.status || "PLANNED",
+    result: trade.result || "PENDING",
+  };
+}
+
 function App() {
   const [summary, setSummary] = useState(emptySummary);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [saveTrade, setSaveTrade] = useState(initialSaveTrade);
+  const [editingTradeId, setEditingTradeId] = useState(null);
   const [saveStatus, setSaveStatus] = useState("idle");
   const [saveError, setSaveError] = useState("");
   const [savedTrade, setSavedTrade] = useState(null);
+  const [allTrades, setAllTrades] = useState([]);
+  const [tradeHistoryStatus, setTradeHistoryStatus] = useState("idle");
+  const [tradeFilters, setTradeFilters] = useState({
+    symbol: "ALL",
+    status: "ALL",
+    result: "ALL",
+  });
+  const [selectedTrade, setSelectedTrade] = useState(null);
+  const [tradeActionStatus, setTradeActionStatus] = useState("idle");
+  const [tradeActionError, setTradeActionError] = useState("");
+  const [riskCapital, setRiskCapital] = useState("10000");
+  const [riskPreviewStatus, setRiskPreviewStatus] = useState("idle");
+  const [riskPreviewError, setRiskPreviewError] = useState("");
+  const [riskPreview, setRiskPreview] = useState(null);
+  const [instruments, setInstruments] = useState(fallbackInstruments);
   const [memoryActionStatus, setMemoryActionStatus] = useState("idle");
   const [memoryActionError, setMemoryActionError] = useState("");
   const [memoryActionResult, setMemoryActionResult] = useState(null);
@@ -139,8 +207,47 @@ function App() {
     }
   }
 
+  async function loadInstruments() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/trades/instruments`);
+
+      if (!response.ok) {
+        throw new Error(`Instrument request failed with ${response.status}`);
+      }
+
+      const data = await response.json();
+      setInstruments(data.length ? data : fallbackInstruments);
+    } catch {
+      setInstruments(fallbackInstruments);
+    }
+  }
+
+  async function loadTradeHistory() {
+    setTradeHistoryStatus("loading");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/trades`);
+
+      if (!response.ok) {
+        throw new Error(`Trade history request failed with ${response.status}`);
+      }
+
+      const data = await response.json();
+      setAllTrades(data);
+      setTradeHistoryStatus("ready");
+    } catch (requestError) {
+      setTradeHistoryStatus("error");
+      setTradeActionError(requestError.message);
+    }
+  }
+
+  async function refreshTradingData() {
+    await Promise.all([loadDashboard(), loadTradeHistory()]);
+  }
+
   useEffect(() => {
-    loadDashboard();
+    refreshTradingData();
+    loadInstruments();
   }, []);
 
   function updateCoachTrade(field, value) {
@@ -157,6 +264,24 @@ function App() {
     }));
   }
 
+  function updateTradeFilter(field, value) {
+    setTradeFilters((currentFilters) => ({
+      ...currentFilters,
+      [field]: value,
+    }));
+  }
+
+  function resetSaveForm() {
+    setEditingTradeId(null);
+    setSaveTrade(initialSaveTrade);
+    setSaveStatus("idle");
+    setSaveError("");
+    setSavedTrade(null);
+    setRiskPreview(null);
+    setRiskPreviewStatus("idle");
+    setRiskPreviewError("");
+  }
+
   async function submitSaveTrade(event) {
     event.preventDefault();
     setSaveStatus("loading");
@@ -164,28 +289,158 @@ function App() {
     setSavedTrade(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/trades`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const isEditing = editingTradeId !== null;
+      const response = await fetch(
+        `${API_BASE_URL}/trades${isEditing ? `/${editingTradeId}` : ""}`,
+        {
+          method: isEditing ? "PATCH" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(buildTradePayload(saveTrade)),
         },
-        body: JSON.stringify(buildTradePayload(saveTrade)),
-      });
+      );
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
         const detail =
-          errorBody?.detail || `Save trade failed with ${response.status}`;
+          errorBody?.detail || `Trade save failed with ${response.status}`;
         throw new Error(Array.isArray(detail) ? detail[0]?.msg : detail);
       }
 
       const data = await response.json();
       setSavedTrade(data);
       setSaveStatus("ready");
-      await loadDashboard();
+      setSelectedTrade(data);
+      await refreshTradingData();
     } catch (requestError) {
       setSaveStatus("error");
       setSaveError(requestError.message);
+    }
+  }
+
+  async function fetchTradeById(tradeId) {
+    const response = await fetch(`${API_BASE_URL}/trades/${tradeId}`);
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(
+        errorBody?.detail || `Get trade failed with ${response.status}`,
+      );
+    }
+
+    return response.json();
+  }
+
+  async function viewTrade(tradeId) {
+    setTradeActionStatus("loading");
+    setTradeActionError("");
+
+    try {
+      const data = await fetchTradeById(tradeId);
+      setSelectedTrade(data);
+      setTradeActionStatus("ready");
+    } catch (requestError) {
+      setTradeActionStatus("error");
+      setTradeActionError(requestError.message);
+    }
+  }
+
+  async function startEditTrade(tradeId) {
+    setTradeActionStatus("loading");
+    setTradeActionError("");
+
+    try {
+      const data = await fetchTradeById(tradeId);
+      setSelectedTrade(data);
+      setEditingTradeId(tradeId);
+      setSaveTrade(tradeToFormState(data));
+      setSavedTrade(null);
+      setSaveError("");
+      setSaveStatus("idle");
+      setTradeActionStatus("ready");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (requestError) {
+      setTradeActionStatus("error");
+      setTradeActionError(requestError.message);
+    }
+  }
+
+  async function deleteTrade(tradeId) {
+    const shouldDelete = window.confirm(
+      `Delete trade #${tradeId}? This removes it from SQLite.`,
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setTradeActionStatus("loading");
+    setTradeActionError("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/trades/${tradeId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(
+          errorBody?.detail || `Delete trade failed with ${response.status}`,
+        );
+      }
+
+      if (selectedTrade?.id === tradeId) {
+        setSelectedTrade(null);
+      }
+
+      if (editingTradeId === tradeId) {
+        resetSaveForm();
+      }
+
+      setTradeActionStatus("ready");
+      await refreshTradingData();
+    } catch (requestError) {
+      setTradeActionStatus("error");
+      setTradeActionError(requestError.message);
+    }
+  }
+
+  async function runRiskPreview() {
+    setRiskPreviewStatus("loading");
+    setRiskPreviewError("");
+    setRiskPreview(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/trades/risk-preview`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          symbol: saveTrade.symbol,
+          direction: saveTrade.direction,
+          entry_price: Number(saveTrade.entry_price),
+          stop_loss: Number(saveTrade.stop_loss),
+          take_profit: Number(saveTrade.take_profit),
+          capital: Number(riskCapital),
+          risk_percent: Number(saveTrade.risk_percent),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        const detail =
+          errorBody?.detail || `Risk preview failed with ${response.status}`;
+        throw new Error(Array.isArray(detail) ? detail[0]?.msg : detail);
+      }
+
+      const data = await response.json();
+      setRiskPreview(data);
+      setRiskPreviewStatus("ready");
+    } catch (requestError) {
+      setRiskPreviewStatus("error");
+      setRiskPreviewError(requestError.message);
     }
   }
 
@@ -294,6 +549,26 @@ function App() {
     )[0];
   }, [summary.symbol_performance]);
 
+  const historySymbols = useMemo(
+    () => [...new Set(allTrades.map((trade) => trade.symbol))].sort(),
+    [allTrades],
+  );
+
+  const filteredTrades = useMemo(
+    () =>
+      allTrades.filter((trade) => {
+        const symbolMatches =
+          tradeFilters.symbol === "ALL" || trade.symbol === tradeFilters.symbol;
+        const statusMatches =
+          tradeFilters.status === "ALL" || trade.status === tradeFilters.status;
+        const resultMatches =
+          tradeFilters.result === "ALL" || trade.result === tradeFilters.result;
+
+        return symbolMatches && statusMatches && resultMatches;
+      }),
+    [allTrades, tradeFilters],
+  );
+
   return (
     <main className="app-shell">
       <header className="top-bar">
@@ -301,7 +576,7 @@ function App() {
           <p className="eyebrow">AI Trading Journal</p>
           <h1>Performance Dashboard</h1>
         </div>
-        <button type="button" onClick={loadDashboard}>
+        <button type="button" onClick={refreshTradingData}>
           Refresh
         </button>
       </header>
@@ -351,22 +626,34 @@ function App() {
       <section className="panel trade-save-panel">
         <div className="panel-heading">
           <div>
-            <h2>Save Trade</h2>
-            <p>Save a trade into the database and Cognee memory.</p>
+            <h2>
+              {editingTradeId ? `Edit Trade #${editingTradeId}` : "Save Trade"}
+            </h2>
+            <p>
+              {editingTradeId
+                ? "Update this trade and refresh its Cognee memory."
+                : "Save a trade into the database and Cognee memory."}
+            </p>
           </div>
-          <span>POST /trades</span>
+          <span>{editingTradeId ? "PATCH /trades/{id}" : "POST /trades"}</span>
         </div>
 
         <form className="coach-form" onSubmit={submitSaveTrade}>
           <div className="form-grid">
             <label>
               Symbol
-              <input
+              <select
                 value={saveTrade.symbol}
                 onChange={(event) =>
                   updateSaveTrade("symbol", event.target.value)
                 }
-              />
+              >
+                {instruments.map((instrument) => (
+                  <option key={instrument.symbol} value={instrument.symbol}>
+                    {instrument.symbol} - {instrument.label}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label>
@@ -506,10 +793,80 @@ function App() {
             />
           </label>
 
+          <div className="risk-preview-panel">
+            <div className="risk-preview-controls">
+              <label>
+                Account Capital
+                <input
+                  type="number"
+                  value={riskCapital}
+                  onChange={(event) => setRiskCapital(event.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={runRiskPreview}
+                disabled={riskPreviewStatus === "loading"}
+              >
+                {riskPreviewStatus === "loading"
+                  ? "Calculating..."
+                  : "Preview Risk"}
+              </button>
+            </div>
+
+            {riskPreviewStatus === "error" ? (
+              <p className="inline-error">{riskPreviewError}</p>
+            ) : null}
+
+            {riskPreview ? (
+              <div className="risk-preview-grid">
+                <StatCard
+                  label="Risk Amount"
+                  value={`$${formatNumber(riskPreview.risk_amount)}`}
+                />
+                <StatCard
+                  label="Suggested Lot"
+                  value={formatNumber(riskPreview.suggested_lot_size)}
+                  detail={`${riskPreview.symbol} | contract ${formatNumber(riskPreview.contract_size)}`}
+                />
+                <StatCard
+                  label="Risk Per Lot"
+                  value={`$${formatNumber(riskPreview.risk_per_lot)}`}
+                />
+                <StatCard
+                  label="RR Ratio"
+                  value={formatRatio(riskPreview.risk_reward_ratio)}
+                />
+              </div>
+            ) : null}
+
+            {riskPreview?.warnings?.length ? (
+              <ul className="risk-warning-list">
+                {riskPreview.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+
           <div className="form-actions">
             <button type="submit" disabled={saveStatus === "loading"}>
-              {saveStatus === "loading" ? "Saving..." : "Save Trade"}
+              {saveStatus === "loading"
+                ? "Saving..."
+                : editingTradeId
+                  ? "Update Trade"
+                  : "Save Trade"}
             </button>
+
+            {editingTradeId ? (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={resetSaveForm}
+              >
+                Cancel Edit
+              </button>
+            ) : null}
 
             {saveStatus === "error" ? (
               <p className="inline-error">{saveError}</p>
@@ -517,8 +874,8 @@ function App() {
 
             {savedTrade ? (
               <p className="inline-success">
-                Trade #{savedTrade.id} saved. Cognee memory saved:{" "}
-                {savedTrade.memory_saved ? "yes" : "no"}.
+                Trade #{savedTrade.id} {editingTradeId ? "updated" : "saved"}.
+                Cognee memory saved: {savedTrade.memory_saved ? "yes" : "no"}.
               </p>
             ) : null}
           </div>
@@ -615,12 +972,18 @@ function App() {
             <div className="form-grid">
               <label>
                 Symbol
-                <input
+                <select
                   value={coachTrade.symbol}
                   onChange={(event) =>
                     updateCoachTrade("symbol", event.target.value)
                   }
-                />
+                >
+                  {instruments.map((instrument) => (
+                    <option key={instrument.symbol} value={instrument.symbol}>
+                      {instrument.symbol} - {instrument.label}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label>
@@ -813,7 +1176,18 @@ function App() {
 
                 <div className="coach-review">
                   <strong>Coach review</strong>
-                  <p>{coachResult.coach_review}</p>
+                  {coachResult.structured_review ? (
+                    <div className="coach-review-grid">
+                      {coachReviewSections.map(([key, label]) => (
+                        <article className="coach-review-card" key={key}>
+                          <span>{label}</span>
+                          <p>{coachResult.structured_review[key] || "-"}</p>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>{coachResult.coach_review}</p>
+                  )}
                 </div>
               </>
             ) : null}
@@ -874,15 +1248,92 @@ function App() {
 
       <section className="panel recent-panel">
         <div className="panel-heading">
-          <h2>Recent Trades</h2>
-          <span>Latest 5</span>
+          <div>
+            <h2>Trade History</h2>
+            <p>Review, filter, edit, and delete every saved trade.</p>
+          </div>
+          <span>
+            {filteredTrades.length} of {allTrades.length} trades | GET / PATCH /
+            DELETE
+          </span>
         </div>
 
-        {summary.recent_trades.length ? (
+        <div className="history-controls">
+          <label>
+            Symbol
+            <select
+              value={tradeFilters.symbol}
+              onChange={(event) =>
+                updateTradeFilter("symbol", event.target.value)
+              }
+            >
+              <option value="ALL">All symbols</option>
+              {historySymbols.map((symbol) => (
+                <option key={symbol} value={symbol}>
+                  {symbol}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Status
+            <select
+              value={tradeFilters.status}
+              onChange={(event) =>
+                updateTradeFilter("status", event.target.value)
+              }
+            >
+              <option value="ALL">All statuses</option>
+              <option value="PLANNED">PLANNED</option>
+              <option value="OPEN">OPEN</option>
+              <option value="CLOSED">CLOSED</option>
+            </select>
+          </label>
+
+          <label>
+            Result
+            <select
+              value={tradeFilters.result}
+              onChange={(event) =>
+                updateTradeFilter("result", event.target.value)
+              }
+            >
+              <option value="ALL">All results</option>
+              <option value="PENDING">PENDING</option>
+              <option value="WIN">WIN</option>
+              <option value="LOSS">LOSS</option>
+              <option value="BREAKEVEN">BREAKEVEN</option>
+            </select>
+          </label>
+
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() =>
+              setTradeFilters({ symbol: "ALL", status: "ALL", result: "ALL" })
+            }
+          >
+            Clear Filters
+          </button>
+        </div>
+
+        {tradeActionStatus === "error" || tradeHistoryStatus === "error" ? (
+          <p className="inline-error trade-action-message">
+            {tradeActionError}
+          </p>
+        ) : null}
+
+        {tradeHistoryStatus === "loading" ? (
+          <p className="empty-text">Loading trade history...</p>
+        ) : null}
+
+        {filteredTrades.length ? (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
+                  <th>Date</th>
                   <th>Symbol</th>
                   <th>Direction</th>
                   <th>Entry</th>
@@ -890,12 +1341,16 @@ function App() {
                   <th>TP</th>
                   <th>RR</th>
                   <th>Session</th>
+                  <th>Setup</th>
+                  <th>Status</th>
                   <th>Result</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {summary.recent_trades.map((trade) => (
+                {filteredTrades.map((trade) => (
                   <tr key={trade.id}>
+                    <td>{formatDateTime(trade.created_at)}</td>
                     <td>{trade.symbol}</td>
                     <td>{trade.direction}</td>
                     <td>{formatNumber(trade.entry_price)}</td>
@@ -903,8 +1358,38 @@ function App() {
                     <td>{formatNumber(trade.take_profit)}</td>
                     <td>{formatRatio(trade.risk_reward_ratio)}</td>
                     <td>{trade.session || "-"}</td>
+                    <td>{trade.setup || "-"}</td>
+                    <td>{trade.status}</td>
                     <td>
                       <ResultPill value={trade.result} />
+                    </td>
+                    <td>
+                      <div className="table-actions">
+                        <button
+                          type="button"
+                          className="small-button secondary-button"
+                          onClick={() => viewTrade(trade.id)}
+                          disabled={tradeActionStatus === "loading"}
+                        >
+                          View
+                        </button>
+                        <button
+                          type="button"
+                          className="small-button secondary-button"
+                          onClick={() => startEditTrade(trade.id)}
+                          disabled={tradeActionStatus === "loading"}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="small-button danger-button"
+                          onClick={() => deleteTrade(trade.id)}
+                          disabled={tradeActionStatus === "loading"}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -912,8 +1397,70 @@ function App() {
             </table>
           </div>
         ) : (
-          <p className="empty-text">No recent trades yet.</p>
+          <p className="empty-text">
+            {allTrades.length
+              ? "No trades match the selected filters."
+              : "No trades saved yet."}
+          </p>
         )}
+
+        {selectedTrade ? (
+          <section className="trade-detail-panel">
+            <div className="panel-heading">
+              <div>
+                <h2>Trade #{selectedTrade.id} Details</h2>
+                <p>
+                  {selectedTrade.symbol} {selectedTrade.direction} |{" "}
+                  {selectedTrade.session || "No session"} |{" "}
+                  {selectedTrade.setup || "No setup"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setSelectedTrade(null)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="trade-detail-grid">
+              <StatCard
+                label="Entry"
+                value={formatNumber(selectedTrade.entry_price)}
+              />
+              <StatCard
+                label="Stop Loss"
+                value={formatNumber(selectedTrade.stop_loss)}
+              />
+              <StatCard
+                label="Take Profit"
+                value={formatNumber(selectedTrade.take_profit)}
+              />
+              <StatCard
+                label="RR Ratio"
+                value={formatRatio(selectedTrade.risk_reward_ratio)}
+              />
+              <StatCard
+                label="Lot Size"
+                value={formatNumber(selectedTrade.lot_size)}
+              />
+              <StatCard
+                label="Risk %"
+                value={formatPercent(selectedTrade.risk_percent)}
+              />
+              <StatCard label="Status" value={selectedTrade.status} />
+              <StatCard label="Result" value={selectedTrade.result} />
+            </div>
+
+            <div className="trade-detail-notes">
+              <strong>Emotion</strong>
+              <p>{selectedTrade.emotion || "-"}</p>
+              <strong>Notes</strong>
+              <p>{selectedTrade.notes || "-"}</p>
+            </div>
+          </section>
+        ) : null}
       </section>
     </main>
   );

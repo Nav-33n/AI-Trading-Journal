@@ -50,6 +50,48 @@ class TradeOut(TradeBase):
     model_config = {"from_attributes": True}
 
 
+class RiskPreviewRequest(BaseModel):
+    symbol: str = Field(..., examples=["XAUUSD"])
+    direction: TradeDirection
+    entry_price: float
+    stop_loss: float
+    take_profit: float
+    capital: float = Field(..., gt=0, examples=[10000])
+    risk_percent: float = Field(..., gt=0, examples=[1])
+
+
+class RiskPreviewOut(BaseModel):
+    symbol: str
+    asset_type: str
+    contract_size: float
+    pip_size: float
+    min_lot: float
+    lot_step: float
+    quote_currency: str
+    requires_usd_conversion: bool
+    capital: float
+    risk_percent: float
+    risk_amount: float
+    stop_distance: float
+    target_distance: float
+    risk_reward_ratio: float | None
+    risk_per_lot: float
+    suggested_lot_size: float
+    warnings: list[str]
+
+
+class InstrumentSpecOut(BaseModel):
+    symbol: str
+    label: str
+    asset_type: str
+    contract_size: float
+    pip_size: float
+    min_lot: float
+    lot_step: float
+    quote_currency: str
+    requires_usd_conversion: bool
+
+
 class MemoryRecallRequest(BaseModel):
     symbol: str
     direction: TradeDirection | None = None
@@ -92,10 +134,19 @@ class AICoachRequest(BaseModel):
     )
 
 
+class AICoachStructuredReview(BaseModel):
+    memory_match: str
+    risk_check: str
+    setup_quality: str
+    coaching_advice: str
+    one_rule: str
+
+
 class AICoachResponse(BaseModel):
     query: str
     recalled_memories: list[str]
     coach_review: str
+    structured_review: AICoachStructuredReview
 
 
 class SymbolPerformanceOut(BaseModel):

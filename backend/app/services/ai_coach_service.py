@@ -1,3 +1,4 @@
+import json
 import os
 
 from openai import OpenAI
@@ -40,6 +41,44 @@ def build_memory_request(payload: AICoachRequest) -> MemoryRecallRequest:
     )
 
 
+def empty_structured_review() -> dict[str, str]:
+    return {
+        "memory_match": "",
+        "risk_check": "",
+        "setup_quality": "",
+        "coaching_advice": "",
+        "one_rule": "",
+    }
+
+
+def parse_structured_review(content: str) -> dict[str, str]:
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError:
+        review = empty_structured_review()
+        review["coaching_advice"] = content
+        review["one_rule"] = "Wait for a clean setup and follow your risk plan."
+        return review
+
+    review = empty_structured_review()
+
+    for key in review:
+        value = parsed.get(key, "")
+        review[key] = str(value).strip()
+
+    return review
+
+
+def structured_review_to_text(review: dict[str, str]) -> str:
+    return (
+        f"1. Memory Match\n{review['memory_match']}\n\n"
+        f"2. Risk Check\n{review['risk_check']}\n\n"
+        f"3. Setup Quality\n{review['setup_quality']}\n\n"
+        f"4. Coaching Advice\n{review['coaching_advice']}\n\n"
+        f"5. One Rule To Follow\n{review['one_rule']}"
+    )
+
+
 async def generate_memory_coach_review(payload: AICoachRequest) -> dict:
     memory_request = build_memory_request(payload)
     recall_query = build_recall_query(memory_request)
@@ -60,19 +99,20 @@ async def generate_memory_coach_review(payload: AICoachRequest) -> dict:
     ) or "- No similar memories found."
 
     question = payload.question or "Review this trade using my past similar trades."
-
     prompt = (
         "You are a trading journal coach. Use the current trade and recalled memory "
         "to give practical, concise feedback. Do not give financial guarantees.\n\n"
         f"Current trade:\n{build_trade_context(payload.trade)}\n\n"
         f"Recalled memory:\n{memories_text}\n\n"
         f"Trader question: {question}\n\n"
-        "Return feedback with these headings:\n"
-        "1. Memory Match\n"
-        "2. Risk Check\n"
-        "3. Setup Quality\n"
-        "4. Coaching Advice\n"
-        "5. One Rule To Follow"
+        "Return only valid JSON. Do not wrap it in markdown. Use this exact shape:\n"
+        "{\n"
+        '  "memory_match": "How this trade compares with recalled memories.",\n'
+        '  "risk_check": "Risk/reward and invalidation feedback.",\n'
+        '  "setup_quality": "Quality of setup, session, emotion, and execution.",\n'
+        '  "coaching_advice": "Practical coaching advice for this trade.",\n'
+        '  "one_rule": "One clear rule the trader should follow."\n'
+        "}"
     )
 
     response = client.chat.completions.create(
@@ -88,8 +128,12 @@ async def generate_memory_coach_review(payload: AICoachRequest) -> dict:
         temperature=0.3,
     )
 
+    content = response.choices[0].message.content or ""
+    structured_review = parse_structured_review(content)
+
     return {
         "query": recall_query,
         "recalled_memories": recalled_memories,
-        "coach_review": response.choices[0].message.content or "",
+        "coach_review": structured_review_to_text(structured_review),
+        "structured_review": structured_review,
     }

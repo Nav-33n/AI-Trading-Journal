@@ -53,6 +53,21 @@ button:hover {
   background: #115e59;
 }
 
+.secondary-button {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.secondary-button:hover {
+  background: #cbd5e1;
+}
+
+.small-button {
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 7px 9px;
+}
+
 .notice {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
@@ -234,6 +249,47 @@ button:disabled {
   color: #047857;
 }
 
+.risk-preview-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.risk-preview-controls {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 240px) auto;
+  justify-content: start;
+}
+
+.risk-preview-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.risk-preview-grid .stat-card {
+  padding: 12px;
+}
+
+.risk-preview-grid .stat-card strong {
+  font-size: 22px;
+}
+
+.risk-warning-list {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  color: #9a3412;
+  font-size: 14px;
+  margin: 0;
+  padding: 12px 12px 12px 28px;
+}
+
 .memory-controls-grid {
   display: grid;
   gap: 14px;
@@ -356,6 +412,37 @@ button:disabled {
   white-space: pre-wrap;
 }
 
+.coach-review-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.coach-review-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.coach-review-card span {
+  color: #0f766e;
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.coach-review-card p {
+  background: transparent;
+  border: 0;
+  color: #0f172a;
+  line-height: 1.55;
+  padding: 0;
+  white-space: normal;
+}
+
 .symbol-list {
   display: grid;
   gap: 12px;
@@ -411,7 +498,7 @@ button:disabled {
 
 table {
   border-collapse: collapse;
-  min-width: 760px;
+  min-width: 1180px;
   width: 100%;
 }
 
@@ -467,6 +554,68 @@ td {
   color: #64748b;
 }
 
+.table-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.history-controls {
+  align-items: end;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(150px, 1fr)) auto;
+  margin-bottom: 14px;
+  padding: 14px;
+}
+
+.trade-action-message {
+  margin-bottom: 12px;
+}
+
+.trade-detail-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.trade-detail-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.trade-detail-grid .stat-card {
+  padding: 12px;
+}
+
+.trade-detail-grid .stat-card strong {
+  font-size: 22px;
+}
+
+.trade-detail-notes {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.trade-detail-notes strong {
+  color: #0f172a;
+}
+
+.trade-detail-notes p {
+  color: #475569;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 900px) {
   .top-bar,
   .symbol-row {
@@ -477,7 +626,11 @@ td {
   .stats-grid,
   .content-grid,
   .coach-grid,
-  .memory-controls-grid {
+  .memory-controls-grid,
+  .risk-preview-grid,
+  .risk-preview-controls,
+  .history-controls,
+  .trade-detail-grid {
     grid-template-columns: 1fr;
   }
 

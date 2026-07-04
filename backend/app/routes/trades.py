@@ -3,11 +3,24 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Trade
-from app.schemas import TradeCreate, TradeOut, TradeUpdate
-from app.services.memory_service import remember_trade
-from app.services.risk_service import calculate_risk_reward
-from app.schemas import AICoachRequest, AICoachResponse, TradeCreate, TradeOut, TradeUpdate
+from app.schemas import (
+    AICoachRequest,
+    AICoachResponse,
+    InstrumentSpecOut,
+    RiskPreviewOut,
+    RiskPreviewRequest,
+    TradeCreate,
+    TradeOut,
+    TradeUpdate,
+)
 from app.services.ai_coach_service import generate_memory_coach_review
+from app.services.memory_service import remember_trade
+from app.services.risk_service import (
+    calculate_risk_reward,
+    calculate_trade_risk_preview,
+    list_instrument_specs,
+)
+
 router = APIRouter(prefix="/trades", tags=["trades"])
 
 
@@ -39,6 +52,25 @@ def list_trades(db: Session = Depends(get_db)):
     trades = db.query(Trade).order_by(Trade.created_at.desc()).all()
     return [to_trade_out(trade) for trade in trades]
 
+
+@router.get("/instruments", response_model=list[InstrumentSpecOut])
+def get_instruments():
+    return list_instrument_specs()
+
+
+@router.post("/risk-preview", response_model=RiskPreviewOut)
+def preview_trade_risk(payload: RiskPreviewRequest):
+    return calculate_trade_risk_preview(
+        symbol=payload.symbol,
+        direction=payload.direction.value,
+        entry_price=payload.entry_price,
+        stop_loss=payload.stop_loss,
+        take_profit=payload.take_profit,
+        capital=payload.capital,
+        risk_percent=payload.risk_percent,
+    )
+
+
 @router.post("/ai-coach", response_model=AICoachResponse)
 async def create_ai_coach_review(payload: AICoachRequest):
     try:
@@ -53,7 +85,8 @@ async def create_ai_coach_review(payload: AICoachRequest):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"AI coach review failed: {error}",
         )
-        
+
+
 @router.get("/{trade_id}", response_model=TradeOut)
 def get_trade(trade_id: int, db: Session = Depends(get_db)):
     trade = db.get(Trade, trade_id)

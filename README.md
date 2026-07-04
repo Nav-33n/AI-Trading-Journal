@@ -1,26 +1,60 @@
 # AI Trading Journal
 
 AI Trading Journal is a FastAPI + React hackathon project that uses Cognee as
-the memory layer for a trading journal coach.
+the memory layer for a personal trading coach. Traders can save trades, review
+risk, recall similar past setups, and ask an AI coach for feedback grounded in
+their own journal history.
 
-The main demo flow is:
+## Why This Project
 
-1. Save a trade.
-2. Store that trade in SQLite.
-3. Remember the trade in Cognee memory.
-4. Recall similar past trades.
-5. Ask the AI coach for feedback.
-6. Improve/memify memory.
-7. Forget/reset memory when test data needs cleanup.
+Most trading journals only store data. This project turns the journal into a
+memory-based assistant:
+
+1. The trader saves a trade.
+2. The backend stores the trade in SQLite.
+3. Cognee remembers the trade as long-term memory.
+4. Similar trades can be recalled later.
+5. The AI coach uses recalled memory to give personalized feedback.
+6. Cognee improve/memify can enrich the memory graph.
+7. Cognee forget can reset memory during testing or cleanup.
+
+## Core Features
+
+- Trade entry form with symbol, direction, entry, stop loss, take profit, risk,
+  session, setup, emotion, notes, status, and result.
+- Risk preview with suggested lot size, risk amount, risk/reward ratio, and
+  instrument warnings.
+- Instrument dropdown for common symbols including XAUUSD, USOIL, and major
+  forex pairs.
+- Dashboard summary with win rate, average risk/reward, result breakdown, and
+  symbol performance.
+- Full trade history table with filters for symbol, status, and result.
+- View, edit, update, and delete saved trades from the frontend.
+- Cognee memory recall for similar historical trades.
+- AI Coach endpoint that combines Cognee recall with an OpenAI-compatible chat
+  model.
+- Cognee improve/memify and forget controls for the memory lifecycle.
 
 ## Tech Stack
 
-- Backend: Python, FastAPI, SQLAlchemy, SQLite
-- Memory: Cognee
-- AI coach: OpenAI-compatible chat API, currently configured for Groq
-- Cognee LLM: Gemini via Google AI Studio
-- Cognee embeddings: FastEmbed
-- Frontend: React + Vite
+| Layer             | Technology                                            |
+| ----------------- | ----------------------------------------------------- |
+| Backend           | Python, FastAPI, SQLAlchemy                           |
+| Database          | SQLite                                                |
+| Memory            | Cognee                                                |
+| Cognee LLM        | Gemini through Google AI Studio                       |
+| Cognee Embeddings | FastEmbed                                             |
+| AI Coach          | OpenAI-compatible API, configured for Groq by default |
+| Frontend          | React + Vite                                          |
+
+## Cognee Memory Lifecycle
+
+| Cognee Step      | Project Feature                                            |
+| ---------------- | ---------------------------------------------------------- |
+| Remember         | `POST /trades` saves each trade to Cognee memory           |
+| Recall           | `POST /memory/recall` and AI Coach retrieve similar trades |
+| Improve / Memify | `POST /memory/improve` enriches memory from saved sessions |
+| Forget           | `POST /memory/forget` resets the Cognee memory dataset     |
 
 ## Backend Setup
 
@@ -33,7 +67,7 @@ copy .env.example .env
 uvicorn app.main:app --reload
 ```
 
-Open API docs:
+Open the API docs:
 
 ```text
 http://127.0.0.1:8000/docs
@@ -47,7 +81,7 @@ npm install
 npm run dev
 ```
 
-Open app:
+Open the app:
 
 ```text
 http://localhost:5173
@@ -58,34 +92,6 @@ If the backend URL changes, create `frontend/.env`:
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
-
-## Environment Keys
-
-Create `backend/.env` from `backend/.env.example`.
-
-Required for AI Coach:
-
-```env
-GROQ_API_KEY=your_groq_key_here
-```
-
-Required for Cognee with Gemini:
-
-```env
-LLM_API_KEY=your_google_ai_studio_key_here
-```
-
-Recommended Cognee settings:
-
-```env
-COGNEE_DATASET_NAME=trading_journal_memory
-ENABLE_BACKEND_ACCESS_CONTROL=false
-EMBEDDING_PROVIDER=fastembed
-EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-EMBEDDING_DIMENSIONS=384
-```
-
-Do not commit `.env`.
 
 ## Main API Endpoints
 
@@ -100,14 +106,17 @@ GET /health
 ```text
 POST /trades
 GET /trades
+GET /trades/instruments
 GET /trades/{trade_id}
 PATCH /trades/{trade_id}
 DELETE /trades/{trade_id}
+POST /trades/risk-preview
+POST /trades/ai-coach
 ```
 
 `POST /trades` saves the trade in SQLite and sends it to Cognee memory.
 
-Sample body:
+Sample trade body:
 
 ```json
 {
@@ -127,43 +136,37 @@ Sample body:
 }
 ```
 
-### AI Coach
-
-```text
-POST /trades/ai-coach
-```
-
-This endpoint recalls similar Cognee memories and asks the AI model to review
-the current trade.
-
 ### Dashboard
 
 ```text
 GET /dashboard/summary
 ```
 
-Returns total trades, win rate, result breakdown, symbol performance, average
-risk/reward, and recent trades.
+Returns total trades, open/closed/planned counts, win rate, average
+risk/reward, result breakdown, symbol performance, and recent trades.
 
-### Cognee Memory Lifecycle
+### Cognee Memory
 
 ```text
+GET /memory/status
 POST /memory/recall
 POST /memory/improve
 POST /memory/forget
-GET /memory/status
 ```
 
-Lifecycle mapping for the hackathon:
+Sample recall body:
 
-| Cognee Step      | Project Feature                                            |
-| ---------------- | ---------------------------------------------------------- |
-| Remember         | `POST /trades` saves trade memory                          |
-| Recall           | `POST /memory/recall` and AI Coach retrieve similar trades |
-| Improve / Memify | `POST /memory/improve` enriches memory                     |
-| Forget           | `POST /memory/forget` resets the Cognee memory dataset     |
+```json
+{
+  "symbol": "XAUUSD",
+  "direction": "BUY",
+  "setup": "Breakout retest",
+  "session": "London",
+  "notes": "Find similar trades from my memory"
+}
+```
 
-Forget requires this confirmation body:
+Forget confirmation body:
 
 ```json
 {
@@ -171,15 +174,32 @@ Forget requires this confirmation body:
 }
 ```
 
-It deletes Cognee memory only. It does not delete SQLite trade records.
+Forget deletes Cognee memory only. It does not delete SQLite trade records.
 
-## Demo Checklist
+## Demo Flow
 
-1. Start backend.
-2. Start frontend.
-3. Save one or more trades from the frontend.
-4. Confirm dashboard numbers update.
-5. Ask AI Coach for feedback.
-6. Run Improve Memory.
-7. Use Recall or AI Coach again.
-8. Use Forget Dataset only when you want to reset Cognee test memory.
+1. Start the backend and frontend.
+2. Add several demo trades from the Save Trade form.
+3. Show the dashboard updating automatically.
+4. Open Trade History and filter by symbol or result.
+5. View and edit one saved trade.
+6. Ask Memory AI Coach for feedback on a planned trade.
+7. Show recalled Cognee memories in the AI Coach response.
+8. Run Improve Memory.
+9. Optionally use Forget Dataset to reset Cognee memory for testing.
+
+## Suggested Demo Trades
+
+Use a few repeated setups so recall has something useful to find:
+
+- XAUUSD BUY, London session, breakout retest, calm, win.
+- XAUUSD BUY, London session, breakout retest, fearful exit, loss.
+- XAUUSD SELL, New York session, resistance rejection, overconfident, loss.
+- USOIL BUY, New York session, pullback continuation, calm, win.
+- EURUSD SELL, London session, trend continuation, patient, breakeven.
+
+## AI Usage Disclosure
+
+AI assistants were used during planning, debugging, code generation, and README
+drafting. The project implementation, integration decisions, testing, and final
+submission remain the responsibility of the project author.
