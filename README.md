@@ -12,13 +12,13 @@ AI Trading Journal is a memory-powered trading journal and coaching assistant bu
 
 ## Project Screenshots
 
-| Page          | Screenshot                                           |
-| ------------- | ---------------------------------------------------- |
-| Dashboard     | ![Dashboard](docs/screenshots/dashboard.png)         |
-| Add Trade     | ![Add Trade](docs/screenshots/add-trade.png)         |
-| Trade History | ![Trade History](docs/screenshots/trade-history.png) |
-| AI Coach      | ![AI Coach](docs/screenshots/ai-coach.png)           |
-| Cognee Memory | ![Cognee Memory](docs/screenshots/cognee-memory.png) |
+| Page          | Screenshot                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| Dashboard     | ![Dashboard](docs/screenshots/Dashboard.png)                                               |
+| Add Trade     | ![Add Trade](docs/screenshots/add-trade.png)                                               |
+| Trade History | ![Trade History](docs/screenshots/trade-history.png)                                       |
+| AI Coach      | ![AI Coach](docs/screenshots/ai-coach.png)                                                 |
+| Cognee Memory | ![Cognee Memory](docs/screenshots/cognee-memory.png) (docs/screenshots/cognee-memory1.png) |
 
 ## About The Project
 
