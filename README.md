@@ -6,9 +6,9 @@ AI Trading Journal is a memory-powered trading journal and coaching assistant. I
 
 | Resource          | Link |
 | ----------------- | ---- |
-| Deployed App      | `https://ai-trading-journal-phi.vercel.app/`   |
+| Deployed App      | `https://ai-trading-journal-phi.vercel.app`   |
 | Demo Video        | ``   |
-| GitHub Repository | ``   |
+| GitHub Repository | `https://github.com/Nav-33n/AI-Trading-Journal`   |
 
 ## Project Screenshots
 
