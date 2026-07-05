@@ -187,7 +187,7 @@ export function DashboardPage({
         </div>
       </section>
 
-      <section className="panel demo-seed-panel">
+      {/* <section className="panel demo-seed-panel">
         <div className="panel-heading">
           <div>
             <h2>Demo Setup</h2>
@@ -226,7 +226,7 @@ export function DashboardPage({
             {seedResult.memory_saved_count}.
           </p>
         ) : null}
-      </section>
+      </section> */}
     </>
   );
 }
