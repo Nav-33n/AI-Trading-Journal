@@ -7,6 +7,7 @@ def trade_to_memory_text(trade: Trade) -> str:
     return (
         f"Trading journal memory. "
         f"Trade ID: {trade.id}. "
+        f"Trade time: {trade.created_at}. "
         f"Symbol: {trade.symbol}. "
         f"Direction: {trade.direction}. "
         f"Entry price: {trade.entry_price}. "

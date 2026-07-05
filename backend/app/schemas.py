@@ -19,6 +19,7 @@ class TradeBase(BaseModel):
     notes: str | None = None
     status: TradeStatus = TradeStatus.PLANNED
     result: TradeResult = TradeResult.PENDING
+    created_at: datetime | None = None
 
 
 class TradeCreate(TradeBase):
@@ -39,6 +40,7 @@ class TradeUpdate(BaseModel):
     notes: str | None = None
     status: TradeStatus | None = None
     result: TradeResult | None = None
+    created_at: datetime | None = None
 
 
 class TradeOut(TradeBase):
@@ -90,6 +92,12 @@ class InstrumentSpecOut(BaseModel):
     lot_step: float
     quote_currency: str
     requires_usd_conversion: bool
+
+
+class DemoSeedOut(BaseModel):
+    created_count: int
+    memory_saved_count: int
+    trades: list[TradeOut]
 
 
 class MemoryRecallRequest(BaseModel):

@@ -6,6 +6,7 @@ from app.models import Trade
 from app.schemas import (
     AICoachRequest,
     AICoachResponse,
+    DemoSeedOut,
     InstrumentSpecOut,
     RiskPreviewOut,
     RiskPreviewRequest,
@@ -23,6 +24,99 @@ from app.services.risk_service import (
 
 router = APIRouter(prefix="/trades", tags=["trades"])
 
+DEMO_TRADES = [
+    {
+        "symbol": "XAUUSD",
+        "direction": "BUY",
+        "entry_price": 2350.0,
+        "stop_loss": 2345.0,
+        "take_profit": 2365.0,
+        "lot_size": 0.2,
+        "risk_percent": 1.0,
+        "session": "London",
+        "setup": "Breakout retest",
+        "emotion": "Calm",
+        "notes": "Demo seed: waited for confirmation candle and followed the plan.",
+        "status": "CLOSED",
+        "result": "WIN",
+    },
+    {
+        "symbol": "XAUUSD",
+        "direction": "BUY",
+        "entry_price": 2348.0,
+        "stop_loss": 2344.0,
+        "take_profit": 2360.0,
+        "lot_size": 0.25,
+        "risk_percent": 1.0,
+        "session": "London",
+        "setup": "Breakout retest",
+        "emotion": "Fearful",
+        "notes": "Demo seed: exited early after minor pullback and missed full target.",
+        "status": "CLOSED",
+        "result": "LOSS",
+    },
+    {
+        "symbol": "XAUUSD",
+        "direction": "SELL",
+        "entry_price": 2368.0,
+        "stop_loss": 2374.0,
+        "take_profit": 2350.0,
+        "lot_size": 0.18,
+        "risk_percent": 1.0,
+        "session": "New York",
+        "setup": "Resistance rejection",
+        "emotion": "Overconfident",
+        "notes": "Demo seed: entered before candle close and ignored strong bullish momentum.",
+        "status": "CLOSED",
+        "result": "LOSS",
+    },
+    {
+        "symbol": "USOIL",
+        "direction": "BUY",
+        "entry_price": 80.0,
+        "stop_loss": 79.2,
+        "take_profit": 82.4,
+        "lot_size": 0.12,
+        "risk_percent": 1.0,
+        "session": "New York",
+        "setup": "Pullback continuation",
+        "emotion": "Patient",
+        "notes": "Demo seed: waited for pullback into support and held until target.",
+        "status": "CLOSED",
+        "result": "WIN",
+    },
+    {
+        "symbol": "EURUSD",
+        "direction": "SELL",
+        "entry_price": 1.084,
+        "stop_loss": 1.087,
+        "take_profit": 1.078,
+        "lot_size": 0.3,
+        "risk_percent": 0.75,
+        "session": "London",
+        "setup": "Trend continuation",
+        "emotion": "Calm",
+        "notes": "Demo seed: clean continuation setup but closed at breakeven before news.",
+        "status": "CLOSED",
+        "result": "BREAKEVEN",
+    },
+    {
+        "symbol": "XAUUSD",
+        "direction": "BUY",
+        "entry_price": 2355.0,
+        "stop_loss": 2350.0,
+        "take_profit": 2370.0,
+        "lot_size": 0.2,
+        "risk_percent": 1.0,
+        "session": "London",
+        "setup": "Breakout retest",
+        "emotion": "Calm",
+        "notes": "Demo seed: planned trade idea for AI Coach recall testing.",
+        "status": "PLANNED",
+        "result": "PENDING",
+    },
+]
+
 
 def to_trade_out(trade: Trade, memory_saved: bool = False) -> TradeOut:
     data = TradeOut.model_validate(trade)
@@ -37,7 +131,7 @@ def to_trade_out(trade: Trade, memory_saved: bool = False) -> TradeOut:
 
 @router.post("", response_model=TradeOut, status_code=status.HTTP_201_CREATED)
 async def create_trade(payload: TradeCreate, db: Session = Depends(get_db)):
-    trade = Trade(**payload.model_dump())
+    trade = Trade(**payload.model_dump(exclude_none=True))
     db.add(trade)
     db.commit()
     db.refresh(trade)
@@ -56,6 +150,31 @@ def list_trades(db: Session = Depends(get_db)):
 @router.get("/instruments", response_model=list[InstrumentSpecOut])
 def get_instruments():
     return list_instrument_specs()
+
+
+@router.post("/demo-seed", response_model=DemoSeedOut, status_code=status.HTTP_201_CREATED)
+async def seed_demo_trades(db: Session = Depends(get_db)):
+    created_trades: list[TradeOut] = []
+    memory_saved_count = 0
+
+    for demo_trade in DEMO_TRADES:
+        trade = Trade(**demo_trade)
+        db.add(trade)
+        db.commit()
+        db.refresh(trade)
+
+        memory_saved = await remember_trade(trade)
+
+        if memory_saved:
+            memory_saved_count += 1
+
+        created_trades.append(to_trade_out(trade, memory_saved=memory_saved))
+
+    return DemoSeedOut(
+        created_count=len(created_trades),
+        memory_saved_count=memory_saved_count,
+        trades=created_trades,
+    )
 
 
 @router.post("/risk-preview", response_model=RiskPreviewOut)
