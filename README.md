@@ -1,6 +1,6 @@
 # AI Trading Journal
 
-AI Trading Journal is a memory-powered trading journal and coaching assistant built for the Cognee hackathon. It helps traders save trades, review risk, analyze performance, recall similar past setups, and receive personalized AI coaching based on their own trading history.
+AI Trading Journal is a memory-powered trading journal and coaching assistant. It helps traders save trades, review risk, analyze performance, recall similar past setups, and receive personalized AI coaching based on their own trading history.
 
 ## Live Demo
 
